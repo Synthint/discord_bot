@@ -1,11 +1,7 @@
 googletrans==3.1.0a0
 python-dotenv==0.21.0
-discord==2.0.0
-discord.py==2.0.1
+py-cord[voice]==2.2.2
 SpeechRecognition==3.8.1
 gtts==2.2.4
-googletrans==3.1.0a0
-playsound==1.2.2
-PyAudio==0.2.12
 asyncio==3.4.3
 PYNaCl==1.5.0

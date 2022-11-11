@@ -6,25 +6,28 @@ import dotenv
 import speech_recognition
 from gtts import gTTS
 import asyncio
+import speech_recognition
 
 dotenv_file = dotenv.find_dotenv()
 dotenv.load_dotenv(dotenv_file)
-
-
-intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
-translator = Translator()
-
 global blacklist
 global botVoiceChannel
 global operator
 botVoiceChannel = 0
 blacklist = os.environ.get("BLACKLIST").split(",")
 operator = os.environ.get("OP")
+translator = Translator()
+recognizer = speech_recognition.Recognizer()
+
+
+intents = discord.Intents.default()
+intents.message_content = True
+intents.voice_states = True
+bot = commands.Bot(command_prefix=">", intents=intents)
 
 
 @bot.command()
-async def textTranslate(ctx, *args):
+async def translate_text(ctx, *args):
     global blacklist
     auth = ctx.author
     if auth.name in blacklist:
@@ -41,7 +44,7 @@ async def textTranslate(ctx, *args):
 
 
 @bot.command()
-async def voiceTranslate(ctx, *args):
+async def translate_voice(ctx, *args):
     global blacklist
     global botVoiceChannel
     vc = botVoiceChannel
@@ -82,7 +85,7 @@ async def voiceTranslate(ctx, *args):
 
 
 @bot.command()
-async def getLanguageCodes(ctx, *args):
+async def get_langs(ctx, *args):
     global blacklist
     auth = ctx.author
     if auth.name in blacklist:
@@ -97,7 +100,7 @@ async def getLanguageCodes(ctx, *args):
 
 
 @bot.command()
-async def connectVoice(ctx, *args):
+async def connect_voice(ctx, *args):
     global botVoiceChannel
     global blacklist
     auth = ctx.author
@@ -115,7 +118,7 @@ async def connectVoice(ctx, *args):
 
 
 @bot.command()
-async def disconnectVoice(ctx, *args):
+async def disconnect_voice(ctx, *args):
     global blacklist
     auth = ctx.author
     if auth.name in blacklist:
@@ -130,7 +133,7 @@ async def disconnectVoice(ctx, *args):
 
 
 @bot.command()
-async def updateBlacklist(ctx, *args):
+async def update_blacklist(ctx, *args):
     global blacklist
     auth = ctx.author
     if auth.name == operator:
@@ -142,6 +145,64 @@ async def updateBlacklist(ctx, *args):
         print(blacklist)
     else:
         await ctx.send("You are not operator, talk to: " + operator)
+
+
+"""
+
+
+
+
+"""
+
+def saveAudio(aud,fileName):
+    with open(fileName,"wb") as f:
+        f.write(aud.getbuffer())
+    f.close
+
+async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  
+    files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]
+    print(files)
+    for user_id, audio in sink.audio_data.items():
+        print(audio.file)
+        print(user_id)
+        saveAudio(audio.file,str(user_id)+".wav")
+
+    with speech_recognition.AudioFile("400001737911697408.wav") as source:
+        audioData = recognizer.record(source)
+    print(type(audioData))
+    text = recognizer.recognize_google(audioData,language="en",show_all=True)
+    print("Transcription:" , text)
+    print(type(text))
+
+    #await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)  
+
+@bot.command()
+async def record(ctx):  # If you're using commands.Bot, this will also work.
+    voice = ctx.author.voice
+
+    if not voice:
+        await ctx.send("You aren't in a voice channel!")
+    global botVoiceChannel
+    vc = botVoiceChannel
+    vc.start_recording(
+        discord.sinks.WaveSink(),  # The sink type to use.
+        once_done,  # What to do once done.
+        ctx.channel  # The channel to disconnect from.
+    )
+    await ctx.send("Started recording!")
+
+@bot.command()
+async def stop_recording(ctx):
+    global botVoiceChannel
+    vc = botVoiceChannel
+    vc.stop_recording()  # Stop recording, and call the callback (once_done).
+
+"""
+
+
+
+
+"""
 
 
 def doTranslation(input, fromLang="en", toLang="pl"):
