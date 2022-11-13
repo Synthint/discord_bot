@@ -7,6 +7,9 @@ import speech_recognition
 from gtts import gTTS
 import asyncio
 import speech_recognition
+from struct import pack, unpack
+
+
 
 dotenv_file = dotenv.find_dotenv()
 dotenv.load_dotenv(dotenv_file)
@@ -159,19 +162,51 @@ def saveAudio(aud,fileName):
         f.write(aud.getbuffer())
     f.close
 
+
+def repairAudio(filename):
+    wav_header = "4si4s4sihhiihh4si"
+
+    f = open(filename, 'rb+')
+    data = list(unpack(wav_header,f.read(44)))
+    assert data[0]=='RIFF'
+    assert data[2]=='WAVE'
+    assert data[3]=='fmt '
+    assert data[4]==16
+    assert data[-2]=='data'
+    assert data[1]==data[-1]+36
+
+    f.seek(0,2)
+    filesize = f.tell()
+    datasize = filesize - 44
+
+    data[-1] = datasize
+    data[1]  = datasize+36
+
+    f.seek(0)
+    f.write(pack(wav_header, *data))
+    f.close()
+
+
 async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  
-    files = [discord.File(audio.file, f"{user_id}.{sink.encoding}") for user_id, audio in sink.audio_data.items()]
-    print(files)
+    files = [
+        discord.File(audio.file, f"{user_id}.{sink.encoding}") 
+        for user_id, audio in sink.audio_data.items()
+        ]
+    print("\n\n\n")
+    print(files[0])
+    print("\n\n\n")
     for user_id, audio in sink.audio_data.items():
         print(audio.file)
+        print(type(audio))
         print(user_id)
         saveAudio(audio.file,str(user_id)+".wav")
+        repairAudio(str(user_id)+".wav")
 
     with speech_recognition.AudioFile("400001737911697408.wav") as source:
         audioData = recognizer.record(source)
     print(type(audioData))
     text = recognizer.recognize_google(audioData,language="en",show_all=True)
-    print("Transcription:" , text)
+    print("Transcription:" ,  text["alternative"][0]["transcript"])
     print(type(text))
 
     #await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)  
