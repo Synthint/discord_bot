@@ -8,8 +8,7 @@ from gtts import gTTS
 import asyncio
 import speech_recognition
 from struct import pack, unpack
-
-
+from pydub import AudioSegment
 
 dotenv_file = dotenv.find_dotenv()
 dotenv.load_dotenv(dotenv_file)
@@ -158,35 +157,42 @@ async def update_blacklist(ctx, *args):
 """
 
 def saveAudio(aud,fileName):
-    with open(fileName,"wb") as f:
-        f.write(aud.getbuffer())
+    fileMP3 = fileName+".mp3"
+    fileWave = fileName+".wav"
+    with open(fileMP3,"wb") as f:
+        f.write(aud.read())
     f.close
+    # saving as wav file didnt work, resulted in corrupted file
+    # saves as mp3, then convert to wav. extra work but
+    # allows the program to function
+    sound = AudioSegment.from_mp3(fileMP3)
+    sound.export(fileWave, format="wav")
+    sound = AudioSegment.from_wav(fileWave)
+    sound = sound.set_channels(1)
+    sound.export(fileWave, format="wav")
 
-
-def repairAudio(filename):
-    wav_header = "4si4s4sihhiihh4si"
-
-    f = open(filename, 'rb+')
-    data = list(unpack(wav_header,f.read(44)))
-    assert data[0]=='RIFF'
-    assert data[2]=='WAVE'
-    assert data[3]=='fmt '
-    assert data[4]==16
-    assert data[-2]=='data'
-    assert data[1]==data[-1]+36
-
-    f.seek(0,2)
-    filesize = f.tell()
-    datasize = filesize - 44
-
-    data[-1] = datasize
-    data[1]  = datasize+36
-
-    f.seek(0)
-    f.write(pack(wav_header, *data))
-    f.close()
-
-
+def recognizeFromVoice(filename,fromLang = "en",toLang = "pl"):
+    with speech_recognition.AudioFile(filename) as source:
+        audioData = recognizer.record(source)
+    print(type(audioData))
+    text = recognizer.recognize_google(audioData,language=fromLang,show_all=True)
+    
+    outFile = "tempVoiceTranslation.mp3"
+    trans = doTranslation(text["alternative"][0]["transcript"], fromLang=fromLang, toLang=toLang)
+    txt = trans.text
+    toLang = trans.dest
+    audio = gTTS(text=txt, lang=toLang, slow=True)
+    audio.save(outFile)
+    return outFile
+    
+async def speakTranslation(filename):
+    global botVoiceChannel
+    vc = botVoiceChannel
+    vc.play(discord.FFmpegPCMAudio(source=filename), after=print("Done"))
+    while vc.is_playing():
+            await asyncio.sleep(1)
+    await vc.disconnect()
+    
 async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  
     files = [
         discord.File(audio.file, f"{user_id}.{sink.encoding}") 
@@ -199,15 +205,9 @@ async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):
         print(audio.file)
         print(type(audio))
         print(user_id)
-        saveAudio(audio.file,str(user_id)+".wav")
-        repairAudio(str(user_id)+".wav")
-
-    with speech_recognition.AudioFile("400001737911697408.wav") as source:
-        audioData = recognizer.record(source)
-    print(type(audioData))
-    text = recognizer.recognize_google(audioData,language="en",show_all=True)
-    print("Transcription:" ,  text["alternative"][0]["transcript"])
-    print(type(text))
+        saveAudio(audio.file,str(user_id))
+        # recognizeFromVoice(str(user_id)+".wav")
+        await speakTranslation(recognizeFromVoice(str(user_id)+".wav"))
 
     #await channel.send(f"finished recording audio for: {', '.join(recorded_users)}.", files=files)  
 
@@ -220,7 +220,7 @@ async def record(ctx):  # If you're using commands.Bot, this will also work.
     global botVoiceChannel
     vc = botVoiceChannel
     vc.start_recording(
-        discord.sinks.WaveSink(),  # The sink type to use.
+        discord.sinks.MP3Sink(),  # The sink type to use.
         once_done,  # What to do once done.
         ctx.channel  # The channel to disconnect from.
     )
