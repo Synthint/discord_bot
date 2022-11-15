@@ -149,13 +149,6 @@ async def update_blacklist(ctx, *args):
         await ctx.send("You are not operator, talk to: " + operator)
 
 
-"""
-
-
-
-
-"""
-
 def saveAudio(aud,fileName):
     fileMP3 = fileName+".mp3"
     fileWave = fileName+".wav"
@@ -179,10 +172,7 @@ def recognizeFromVoice(filename,fromLang = "en",toLang = "pl"):
     
     outFile = "tempVoiceTranslation.mp3"
     trans = doTranslation(text["alternative"][0]["transcript"], fromLang=fromLang, toLang=toLang)
-    txt = trans.text
-    toLang = trans.dest
-    audio = gTTS(text=txt, lang=toLang, slow=True)
-    audio.save(outFile)
+    saveTranslationAudio(trans,outFile)
     return outFile
     
 async def speakTranslation(filename):
@@ -191,7 +181,6 @@ async def speakTranslation(filename):
     vc.play(discord.FFmpegPCMAudio(source=filename), after=print("Done"))
     while vc.is_playing():
             await asyncio.sleep(1)
-    await vc.disconnect()
     
 async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  
     files = [
@@ -231,13 +220,6 @@ async def stop_recording(ctx):
     global botVoiceChannel
     vc = botVoiceChannel
     vc.stop_recording()  # Stop recording, and call the callback (once_done).
-
-"""
-
-
-
-
-"""
 
 
 def doTranslation(input, fromLang="en", toLang="pl"):
