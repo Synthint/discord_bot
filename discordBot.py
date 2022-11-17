@@ -7,7 +7,6 @@ import speech_recognition
 from gtts import gTTS
 import asyncio
 import speech_recognition
-from struct import pack, unpack
 from pydub import AudioSegment
 
 dotenv_file = dotenv.find_dotenv()
